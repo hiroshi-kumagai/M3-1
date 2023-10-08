@@ -6,16 +6,16 @@ This repository contains the scripts used for the M3-1382AC project:
 
 
 # Lead contact
-**Hiroshi Kumagai, PhD**
-Email: hkumagai@usc.edu
+**Hiroshi Kumagai, PhD**<br>
+Email: hkumagai@usc.edu<br>
 
 
-# Correspondence:
+# Correspondence
 
-**Pinchas Cohen, MD**
-The Leonard Davis School of Gerontology
-University of Southern California, California
-3715 McClintock Ave, Los Angeles, CA 90089, USA.
-Tel: +1 213-740-1354
-E-mail: hassy@usc.edu
+**Pinchas Cohen, MD**<br>
+The Leonard Davis School of Gerontology<br>
+University of Southern California, California<br>
+3715 McClintock Ave, Los Angeles, CA 90089, USA.<br>
+Tel: +1 213-740-1354<br>
+E-mail: hassy@usc.edu<br>
 
