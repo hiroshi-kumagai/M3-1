@@ -1,62 +1,64 @@
-# libraries
-library(tidyverse)
-library(tximport)
-library(limma)
-library(DESeq2)
-library(org.Mm.eg.db)
-library(org.Hs.eg.db)
+####summarizeOverlaps
+setwd('/Volumes/HDD14TB/RNAseq_expression/Dataset/biopsy/')
+sampleTable<-read.csv("sampleinfo.csv")
 
-setwd("/Volumes/HDD14TB/RNAseq_expression/Dataset/Sarcopenia_Chinese_new")
+filenames <- file.path(getwd(), paste0(sampleTable$Run, ".Aligned.sortedByCoord.out.bam"))
+file.exists(filenames)
 
-# directory paths
-dir <- "/Volumes/HDD14TB/RNAseq_expression/Dataset/Sarcopenia_Chinese_new"
-datadir <- paste(dir, "data", sep = "/")
-resultsdir <- paste(dir, "results", sep = "/")
+library("BiocManager")
+library("S4Vectors")
+library("IRanges")
+library("GenomeInfoDb")
+library("GenomicRanges")
+library("BiocGenerics")
+library("BiocParallel")
+library("XVector")
+library("Biostrings")
+library("Rsamtools")
+bamfiles<-BamFileList(filenames, yieldSize = 2000000)
+seqinfo(bamfiles[1])
 
-# loading in RSEM data
-file <- paste(datadir, "sampleinfo_MCSNP_muscle.csv", sep = "/")
-sampleinfo <- read.csv(file, header = TRUE)
-sampleinfo$MC_SNP <- factor(sampleinfo$MC_SNP, 
-                               levels = c("WT", "K14Q"))
+library("Biobase")
+library("AnnotationDbi")
+library("GenomicFeatures")
+gtffile <- file.path(getwd(),"Homo_sapiens.GRCh38.100.gtf")
+txdb <- makeTxDbFromGFF(gtffile, format = "gtf", circ_seqs = character())
+txdb
 
-# load in files for tximport
-files <- sampleinfo$path
-names(files) <- sampleinfo$run
-head(files)
-all(file.exists(files))
+ebg <- exonsBy(txdb, by="gene")
+ebg
 
-txi <- tximport::tximport(files, type = "rsem", txIn = FALSE, txOut = FALSE)
-saveRDS(txi, "txi.MOTScSNP_China.new.rds") # for later use
+library("matrixStats")
+library("DelayedArray")
+library("SummarizedExperiment")
+library("GenomicAlignments")
+library("BiocParallel")
 
-file <- paste(datadir, "txi.MOTScSNP_China.new.rds", sep = "/")
-txi <- readRDS(file)
-txi$length[txi$length == 0] <- 1
-txi$counts[1:5, 1:5]
-txi$length[1:5, 1:5]
+se <- summarizeOverlaps(features = ebg,
+                        reads = bamfiles,
+                        mode = "Union",
+                        singleEnd = FALSE,
+                        ignore.strand = FALSE,
+                        fragments = FALSE,
+                        inter.feature = FALSE,
+                        preprocess.reads=invertStrand)
 
-# DESeq2
-all(sampleinfo$run == colnames(txi$counts))
-rownames(sampleinfo) <- colnames(txi$counts)
-dds <- DESeq2::DESeqDataSetFromTximport(txi, sampleinfo, ~ MC_SNP)
-dds <- DESeq2::DESeq(dds)
-dds <- BiocGenerics::estimateSizeFactors(dds)
+saveRDS(se, "biopsy.rds")
+se <- readRDS('biopsy.rds')
 
-# get GENENAME and SYMBOL for dds results
-res_annotation <- clusterProfiler::bitr(rownames(dds),
-                                        fromType = "ENSEMBL",
-                                        toType = c("GENENAME", "SYMBOL"),
-                                        OrgDb = org.Hs.eg.db,
-                                        drop = FALSE)
 
-# group and annotate the results
-res_WT_K14Q <- data.frame(DESeq2::results(dds,contrast=c("MC_SNP", "WT", "K14Q")))
-write.csv(res_WT_K14Q,"res_WT_K14Q.csv")
 
-# create a list of DESseq2 results
-deseq_results <- res_WT_K14Q
+####DESEQ2
+ibrary("DESeq2")
+library("dplyr")
+colData(se) <- DataFrame(sampleTable)
+colData(se)
+se$m1382 <- factor(se$m1382)
+se$m1382 <- relevel(se$m1382, "c")
+se$sex <- factor(se$sex) ## add batch as a factor
+se$age <- factor(se$age) ## add age as a factor
+dds <- DESeqDataSet(se, design = ~ m1382 + sex + age)
+dds <- DESeq(dds)
+res <- results(dds)
 
-# merge with gene annotation data
-deseq_results$ENSEMBL <- rownames(deseq_results)
-deseq_results <- merge(deseq_results, res_annotation, by = "ENSEMBL")
-write.csv(deseq_results,"res_WT_K14Q_genename.csv")
-
+write.csv(res, "Result_biopsy.csv")
